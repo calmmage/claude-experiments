@@ -1,17 +1,29 @@
 # Todo
 
-## Better cool ideas for projects
+## Better cool ideas for projects (ALL enabled by default)
 
+- [ ] Implement enum mode = ALL: randomly pick which idea generation mode to use
 - [ ] Plain list of ideas
 - [ ] Structured brainstorm, inspired areas like tech frameworks or other
 - [ ] Generate idea with AI
 - [ ] Structured AI generation - first, generate a direction, then pick a random one, then use direction to generate an idea
 
-## Better project implementation scenario
+## Better project implementation scenario (staged development)
 
-- [ ] Simplest tech test
-- [ ] MVP of a meaningful cool essential feature
-- [ ] A complete functional main scenario with thought-through User Scenario steps and UI
+- [ ] Implement staged development with commits after each stage:
+  - [ ] Stage 1: Simplest tech test + commit
+  - [ ] Stage 2: MVP of meaningful core feature + commit
+  - [ ] Stage 3: Complete functional scenario with UI + commit
+- [ ] Add intermediary brainstorming/ideation between stages
+- [ ] Save all intermediary results to work session
+- [ ] Add evaluation system: Claude rates each stage 0-10 for:
+  - [ ] Correspondence to original criteria
+  - [ ] Current launchability/completeness
+  - [ ] Save evaluation scores to work session metadata
+- [ ] Implement safeguards:
+  - [ ] Stop development after too many retries
+  - [ ] Time limit per session (up to 12h is acceptable)
+  - [ ] Quota management for Claude calls
 
 ## Idea and work session tracking
 
