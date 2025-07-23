@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
 import subprocess
-import json
 import time
 import random
 from pathlib import Path
-from datetime import datetime
+from pydantic_settings import BaseSettings
+
+class RunnerSettings(BaseSettings):
+    """Settings for the experiment runner"""
+    # todo: use
+    mode: str = "ai"  # "ai" or "random"
+    call_timeout: int = 600  # seconds for Claude Code to respond
+
+
+    class Config:
+        env_prefix = "RUNNER_"
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
+
+settings = RunnerSettings()
 
 REPO_ROOT = Path(__file__).parent
 EXPERIMENTS_DIR = REPO_ROOT / "experiments"
@@ -47,28 +61,62 @@ def get_experiment_idea(mode="ai"):
 
 def run_claude_code(experiment_dir, idea):
     """Run Claude Code with the experiment idea"""
-    prompt = f"""Create a programming experiment: {idea}
+    # Simplified prompt for better reliability
+    prompt = f"""Create a {idea}. Output format:
+### FILE: filename
+file contents here
+### FILE: another_filename
+more contents
 
-Requirements:
-1. Create all files in {experiment_dir}
-2. Include a run.sh script that starts/runs the experiment
-3. Make it self-contained and immediately runnable
-4. Add a brief README.md explaining what it does
-
-Implementation should be complete and working."""
+Include: README.md explaining the project, run.sh to start it, and all needed code files."""
     
     cmd = [
         "claude",
-        "--print", prompt,
-        "--add-dir", str(experiment_dir)
+        "--print", prompt
     ]
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=settings.call_timeout)
+        
+        if result.returncode != 0:
+            raise Exception(f"Claude Code failed: {result.stderr}")
+        
+        # Parse output and create files
+        create_files_from_output(experiment_dir, result.stdout)
+        
+        return result.stdout
+    except subprocess.TimeoutExpired:
+        raise Exception("Claude Code timed out after 60 seconds")
+
+def create_files_from_output(experiment_dir, output):
+    """Parse Claude's output and create files"""
+    lines = output.split('\n')
+    current_file = None
+    current_content = []
     
-    if result.returncode != 0:
-        raise Exception(f"Claude Code failed: {result.stderr}")
+    for line in lines:
+        if line.startswith("### FILE:"):
+            # Save previous file if any
+            if current_file:
+                file_path = experiment_dir / current_file
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text('\n'.join(current_content))
+                if current_file == "run.sh":
+                    file_path.chmod(0o755)
+            
+            # Start new file
+            current_file = line.replace("### FILE:", "").strip()
+            current_content = []
+        elif current_file:
+            current_content.append(line)
     
-    return result.stdout
+    # Save last file
+    if current_file:
+        file_path = experiment_dir / current_file
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text('\n'.join(current_content))
+        if current_file == "run.sh":
+            file_path.chmod(0o755)
 
 def verify_experiment(experiment_dir):
     """Verify the experiment has run.sh and it works"""
@@ -113,7 +161,7 @@ def main():
     
     # Get experiment details
     day_num = get_next_day_number()
-    idea = get_experiment_idea("ai")  # or "random"
+    idea = get_experiment_idea("random")  # or "random"
     
     # Create experiment directory
     exp_name = idea.lower().replace(" ", "_")[:30]  # First 30 chars
