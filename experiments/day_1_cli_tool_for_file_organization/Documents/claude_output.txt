@@ -1,0 +1,21 @@
+STDOUT:
+I've created a complete CLI tool for file organization. The project includes:
+
+1. **README.md** - Comprehensive documentation with features, usage examples, and configuration guide
+2. **run.sh** - Executable script to launch the tool
+3. **organize.py** - Main Python script with the file organization logic
+4. **custom_rules_example.json** - Example configuration for custom organization rules
+
+The tool supports:
+- Organizing by file type (documents, images, videos, etc.)
+- Organizing by date
+- Custom rules based on patterns and extensions
+- Dry run mode to preview changes
+- Undo functionality
+- Recursive directory processing
+- Duplicate file handling
+
+You can run it with: `bash run.sh` or `./run.sh`
+
+
+STDERR:

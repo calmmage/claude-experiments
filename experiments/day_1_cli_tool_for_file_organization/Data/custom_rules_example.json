@@ -1,0 +1,39 @@
+{
+  "rules": [
+    {
+      "name": "Work Documents",
+      "extensions": [".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx"],
+      "folder": "Work"
+    },
+    {
+      "name": "Project Files",
+      "pattern": "project_*",
+      "folder": "Projects"
+    },
+    {
+      "name": "Screenshots",
+      "pattern": "Screenshot*",
+      "folder": "Screenshots"
+    },
+    {
+      "name": "Downloads from Browser",
+      "extensions": [".download", ".crdownload", ".part"],
+      "folder": "Incomplete_Downloads"
+    },
+    {
+      "name": "Configuration Files",
+      "extensions": [".conf", ".config", ".ini", ".cfg", ".yaml", ".yml"],
+      "folder": "Configs"
+    },
+    {
+      "name": "Logs",
+      "extensions": [".log", ".out", ".err"],
+      "folder": "Logs"
+    },
+    {
+      "name": "Temporary Files",
+      "pattern": "tmp_*",
+      "folder": "Temp"
+    }
+  ]
+}

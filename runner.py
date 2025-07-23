@@ -4,12 +4,13 @@ import time
 import random
 from pathlib import Path
 from pydantic_settings import BaseSettings
+from loguru import logger
 
 class RunnerSettings(BaseSettings):
     """Settings for the experiment runner"""
     # todo: use
     mode: str = "ai"  # "ai" or "random"
-    call_timeout: int = 600  # seconds for Claude Code to respond
+    call_timeout: int = 1200  # seconds for Claude Code to respond (20 minutes)
 
 
     class Config:
@@ -59,64 +60,70 @@ def get_experiment_idea(mode="ai"):
         # AI generates idea
         return "Generate a creative programming experiment idea"
 
-def run_claude_code(experiment_dir, idea):
+def run_claude_code(experiment_dir, idea, retry_context=None):
     """Run Claude Code with the experiment idea"""
-    # Simplified prompt for better reliability
-    prompt = f"""Create a {idea}. Output format:
-### FILE: filename
-file contents here
-### FILE: another_filename
-more contents
-
-Include: README.md explaining the project, run.sh to start it, and all needed code files."""
+    # Change approach - use claude without --print to create files directly
+    start_time = time.time()
     
+    if retry_context:
+        prompt = f"""Previous attempt failed with error: {retry_context}
+
+Please fix the issue and create a working {idea}.
+
+Make sure to:
+1. Create a README.md explaining the project
+2. Create a run.sh script to start the project
+3. Include all needed code files"""
+    else:
+        prompt = f"""Create a {idea}.
+
+Requirements:
+1. Create a README.md explaining the project
+2. Create a run.sh script to start the project (make it executable)
+3. Include all needed code files
+4. Make sure the project is self-contained and can run with bash run.sh"""
+    
+    # Change working directory to experiment dir for file creation
     cmd = [
         "claude",
-        "--print", prompt
+        "-p", prompt,
+        "--dangerously-skip-permissions"
     ]
     
+    logger.info(f"Running Claude Code with prompt: {prompt[:100]}...")
+    
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=settings.call_timeout)
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True, 
+            timeout=settings.call_timeout,
+            cwd=str(experiment_dir)  # Run in experiment directory
+        )
+        
+        elapsed = time.time() - start_time
+        logger.info(f"Claude Code completed in {elapsed:.2f}s")
         
         if result.returncode != 0:
+            logger.error(f"Claude Code failed with stderr: {result.stderr}")
             raise Exception(f"Claude Code failed: {result.stderr}")
         
-        # Parse output and create files
-        create_files_from_output(experiment_dir, result.stdout)
+        # Save both stdout and stderr for debugging
+        output = f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
         
-        return result.stdout
+        return output
     except subprocess.TimeoutExpired:
-        raise Exception("Claude Code timed out after 60 seconds")
+        elapsed = time.time() - start_time
+        logger.error(f"Claude Code timed out after {elapsed:.2f}s")
+        raise Exception(f"Claude Code timed out after {settings.call_timeout} seconds")
 
-def create_files_from_output(experiment_dir, output):
-    """Parse Claude's output and create files"""
-    lines = output.split('\n')
-    current_file = None
-    current_content = []
-    
-    for line in lines:
-        if line.startswith("### FILE:"):
-            # Save previous file if any
-            if current_file:
-                file_path = experiment_dir / current_file
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                file_path.write_text('\n'.join(current_content))
-                if current_file == "run.sh":
-                    file_path.chmod(0o755)
-            
-            # Start new file
-            current_file = line.replace("### FILE:", "").strip()
-            current_content = []
-        elif current_file:
-            current_content.append(line)
-    
-    # Save last file
-    if current_file:
-        file_path = experiment_dir / current_file
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text('\n'.join(current_content))
-        if current_file == "run.sh":
-            file_path.chmod(0o755)
+def list_created_files(experiment_dir):
+    """List all files created in the experiment directory"""
+    files = []
+    for item in experiment_dir.rglob('*'):
+        if item.is_file():
+            files.append(str(item.relative_to(experiment_dir)))
+    return files
 
 def verify_experiment(experiment_dir):
     """Verify the experiment has run.sh and it works"""
@@ -156,6 +163,9 @@ def verify_experiment(experiment_dir):
         return False, f"Error running run.sh: {str(e)}"
 
 def main():
+    logger.info("Starting experiment runner")
+    start_time = time.time()
+    
     # Create experiments directory
     EXPERIMENTS_DIR.mkdir(exist_ok=True)
     
@@ -168,28 +178,47 @@ def main():
     experiment_dir = EXPERIMENTS_DIR / f"day_{day_num}_{exp_name}"
     experiment_dir.mkdir()
     
-    print(f"Creating experiment: {experiment_dir.name}")
-    print(f"Idea: {idea}")
+    logger.info(f"Creating experiment: {experiment_dir.name}")
+    logger.info(f"Idea: {idea}")
     
-    # Run Claude Code
-    print("Running Claude Code...")
-    output = run_claude_code(experiment_dir, idea)
+    # Run Claude Code with retry logic
+    max_attempts = 2
+    retry_context = None
     
-    # Save output
-    with open(experiment_dir / "claude_output.txt", "w") as f:
-        f.write(output)
+    for attempt in range(max_attempts):
+        logger.info(f"Attempt {attempt + 1}/{max_attempts}")
+        
+        # Run Claude Code
+        output = run_claude_code(experiment_dir, idea, retry_context)
+        
+        # Save output
+        with open(experiment_dir / "claude_output.txt", "w") as f:
+            f.write(output)
+        
+        # List created files
+        created_files = list_created_files(experiment_dir)
+        logger.info(f"Created files: {created_files}")
+        
+        # Verify experiment
+        logger.info("Verifying experiment...")
+        verify_start = time.time()
+        success, message = verify_experiment(experiment_dir)
+        logger.info(f"Verification took {time.time() - verify_start:.2f}s")
+        
+        if success:
+            logger.success(f"✓ Experiment verified: {message}")
+            break
+        else:
+            logger.warning(f"✗ Verification failed: {message}")
+            if attempt < max_attempts - 1:
+                retry_context = message
+                logger.info("Retrying with error context...")
+            else:
+                logger.error("Max attempts reached, giving up")
     
-    # Verify experiment
-    print("Verifying experiment...")
-    success, message = verify_experiment(experiment_dir)
-    
-    if success:
-        print(f"✓ Experiment verified: {message}")
-    else:
-        print(f"✗ Verification failed: {message}")
-        # Could run Claude Code again to fix issues
-    
-    print(f"Experiment saved to: {experiment_dir}")
+    total_time = time.time() - start_time
+    logger.info(f"Experiment saved to: {experiment_dir}")
+    logger.info(f"Total execution time: {total_time:.2f}s")
 
 if __name__ == "__main__":
     main()

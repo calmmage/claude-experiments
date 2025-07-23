@@ -1,0 +1,25 @@
+{
+  "operations": [
+    {
+      "from": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/custom_rules_example.json",
+      "to": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/Data/custom_rules_example.json"
+    },
+    {
+      "from": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/organize.py",
+      "to": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/Code/organize.py"
+    },
+    {
+      "from": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/claude_output.txt",
+      "to": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/Documents/claude_output.txt"
+    },
+    {
+      "from": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/run.sh",
+      "to": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/Others/run.sh"
+    },
+    {
+      "from": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/README.md",
+      "to": "/Users/petrlavrov/work/projects/claude-experiments/experiments/day_1_cli_tool_for_file_organization/Others/README.md"
+    }
+  ],
+  "timestamp": "2025-07-24T00:21:05.875459"
+}

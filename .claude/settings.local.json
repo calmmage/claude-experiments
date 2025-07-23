@@ -3,7 +3,10 @@
     "allow": [
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(python:*)",
-      "Bash(claude --print \"Say hello\" --output-format text)"
+      "Bash(claude --print \"Say hello\" --output-format text)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

@@ -1,1 +1,0 @@
-All files have been created. The image metadata extractor is ready to use. It extracts EXIF data, GPS coordinates, camera settings, and basic image properties from various image formats.
