@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 import subprocess
 import time
-import random
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from loguru import logger
 
+from src.idea_generator import get_experiment_idea
+from src.experiment_builder import ExperimentBuilder, ImplementationLevel
+
 class RunnerSettings(BaseSettings):
     """Settings for the experiment runner"""
-    # todo: use
-    mode: str = "ai"  # "ai" or "random"
+    idea_mode: str = "random"  # "random", "structured", "ai", "structured_ai"
+    implementation_level: str = "mvp"  # "simple_test", "mvp", "full_scenario"
     call_timeout: int = 1200  # seconds for Claude Code to respond (20 minutes)
 
 
@@ -40,48 +42,19 @@ def get_next_day_number():
     
     return max(day_nums, default=0) + 1
 
-def get_experiment_idea(mode="ai"):
-    """Get experiment idea either from AI or predefined list"""
-    if mode == "random":
-        ideas = [
-            "CLI tool for file organization",
-            "Visualization of sorting algorithms",
-            "Simple REST API with FastAPI",
-            "Web scraper for news headlines",
-            "Pomodoro timer with notifications",
-            "Markdown to HTML converter",
-            "Password strength checker",
-            "CSV data analyzer",
-            "Image metadata extractor",
-            "Mini text-based adventure game"
-        ]
-        return random.choice(ideas)
-    else:
-        # AI generates idea
-        return "Generate a creative programming experiment idea"
 
 def run_claude_code(experiment_dir, idea, retry_context=None):
     """Run Claude Code with the experiment idea"""
-    # Change approach - use claude without --print to create files directly
     start_time = time.time()
     
+    # Get implementation level
+    level = ImplementationLevel(settings.implementation_level)
+    
+    # Build appropriate prompt
     if retry_context:
-        prompt = f"""Previous attempt failed with error: {retry_context}
-
-Please fix the issue and create a working {idea}.
-
-Make sure to:
-1. Create a README.md explaining the project
-2. Create a run.sh script to start the project
-3. Include all needed code files"""
+        prompt = ExperimentBuilder.get_retry_prompt(retry_context, idea, level)
     else:
-        prompt = f"""Create a {idea}.
-
-Requirements:
-1. Create a README.md explaining the project
-2. Create a run.sh script to start the project (make it executable)
-3. Include all needed code files
-4. Make sure the project is self-contained and can run with bash run.sh"""
+        prompt = ExperimentBuilder.build_prompt(idea, level)
     
     # Change working directory to experiment dir for file creation
     cmd = [
@@ -104,9 +77,11 @@ Requirements:
         elapsed = time.time() - start_time
         logger.info(f"Claude Code completed in {elapsed:.2f}s")
         
-        if result.returncode != 0:
+        if result.returncode != 0 and result.stderr:
             logger.error(f"Claude Code failed with stderr: {result.stderr}")
             raise Exception(f"Claude Code failed: {result.stderr}")
+        elif result.returncode != 0:
+            logger.warning(f"Claude Code exited with code {result.returncode} but no stderr")
         
         # Save both stdout and stderr for debugging
         output = f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
@@ -162,6 +137,27 @@ def verify_experiment(experiment_dir):
     except Exception as e:
         return False, f"Error running run.sh: {str(e)}"
 
+def commit_experiment(experiment_dir, idea):
+    """Commit the experiment to git"""
+    try:
+        logger.info("Committing experiment to git...")
+        
+        # Add the experiment directory
+        subprocess.run(["git", "add", str(experiment_dir)], check=True)
+        
+        # Create commit message
+        day_name = experiment_dir.name
+        commit_msg = f"Add {day_name}: {idea}"
+        
+        # Commit
+        subprocess.run(["git", "commit", "-m", commit_msg], check=True)
+        
+        logger.success(f"✓ Committed: {commit_msg}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to commit experiment: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error during commit: {e}")
+
 def main():
     logger.info("Starting experiment runner")
     start_time = time.time()
@@ -171,7 +167,7 @@ def main():
     
     # Get experiment details
     day_num = get_next_day_number()
-    idea = get_experiment_idea("random")  # or "random"
+    idea = get_experiment_idea(settings.idea_mode)
     
     # Create experiment directory
     exp_name = idea.lower().replace(" ", "_")[:30]  # First 30 chars
@@ -219,6 +215,10 @@ def main():
     total_time = time.time() - start_time
     logger.info(f"Experiment saved to: {experiment_dir}")
     logger.info(f"Total execution time: {total_time:.2f}s")
+    
+    # Commit the experiment
+    if success:
+        commit_experiment(experiment_dir, idea)
 
 if __name__ == "__main__":
     main()
