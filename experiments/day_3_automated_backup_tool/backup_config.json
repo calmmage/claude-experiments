@@ -1,0 +1,13 @@
+{
+  "backup_sources": [
+    "/Users/petrlavrov/Documents",
+    "/Users/petrlavrov/Desktop"
+  ],
+  "backup_destination": "/Users/petrlavrov/Backups",
+  "exclude_patterns": [
+    "*.tmp",
+    "*.log",
+    "__pycache__",
+    ".git"
+  ]
+}
