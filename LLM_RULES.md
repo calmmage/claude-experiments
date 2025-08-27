@@ -2,7 +2,8 @@
 
 ## Overview
 
-This project automates daily runs of Claude Code to generate cool programming experiments. With a Claude Max subscription, we'll have an automated system that creates innovative code experiments every day.
+This project automates daily runs of Claude Code to generate cool programming experiments. 
+With a Claude Max subscription, we'll have an automated system that creates innovative code experiments every day.
 
 ## Project Structure
 
